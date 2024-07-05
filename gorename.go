@@ -1,47 +1,108 @@
 package main
 
 import (
-    "fmt"
-    "math/rand"
-    "os"
-    "path/filepath"
-    "time"
+	"fmt"
+	"log"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"time"
 )
 
+const DEFAULT_LENGTH = 10
+
 func main() {
-    if len(os.Args) < 2 {
-      fmt.Println("Renames a file to a random 10-digit number")
-        fmt.Println("Usage: gorename <filename>")
-        os.Exit(1)
-    }
+	if len(os.Args) < 2 {
+		fmt.Println("Renames a file to a random 10-digit number")
+		fmt.Println("Usage: gorename <pattern>")
+		os.Exit(1)
+	}
 
-    // Get the original file path from command line arguments
-    originalFile := os.Args[1]
+	run()
 
-    // Verify that the file exists
-    if _, err := os.Stat(originalFile); os.IsNotExist(err) {
-        fmt.Printf("The file '%s' does not exist.\n", originalFile)
-        os.Exit(1)
-    }
+}
+func run() {
+	// Verify that the file exists
+	if len(os.Args) < 2 {
+		log.Fatal("Please provide a file pattern (e.g., *.jpg) or a directory (e.g. . ) ")
+	}
+	pattern := os.Args[1]
 
-    // Extract the directory and suffix from the original file
-    dir := filepath.Dir(originalFile)
-    ext := filepath.Ext(originalFile)
+	var files []string
+	var err error
 
-    // Generate a random 10-digit number as a string
-    rand.Seed(time.Now().UnixNano())
-    randomDigits := fmt.Sprintf("%010d", rand.Int63n(10000000000))
+	fmt.Println("Reading Files...")
 
-    // Construct new file name with the original extension
-    newFileName := filepath.Join(dir, randomDigits+ext)
+	if pattern == "." {
+		files, err = readAllFiles(".")
+	} else {
+		files, err = filepath.Glob(pattern)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    // Rename the file
-    err := os.Rename(originalFile, newFileName)
-    if err != nil {
-        fmt.Println("Error renaming the file:", err)
-        os.Exit(1)
-    }
+	fmt.Println("Files successfully read: ")
+	fmt.Println(files)
 
-    fmt.Println("File renamed to", newFileName)
+	err = renameFiles(files)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Generate a random 10-digit number
+}
+func renameFiles(files []string) error {
+
+	fmt.Println("Renaming files...")
+
+	for _, file := range files {
+		ext := filepath.Ext(file)
+		fmt.Println("renaming: ", file, " to")
+		randomDigits := generateRandomDigits()
+		newName := randomDigits + ext
+		fmt.Print(newName)
+		err := os.Rename(file, newName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
+func generateRandomDigits() string {
+	length := DEFAULT_LENGTH
+	source := rand.NewSource(time.Now().UnixNano())
+	rng := rand.New(source)
+
+	fmt.Println("Generating Random Digits...")
+	digits := make([]byte, length)
+	for i := 0; i < length; i++ {
+		digits[i] = byte(rng.Intn(10) + '0')
+	}
+	fmt.Println("Random Digigts: ", string(digits))
+	return string(digits)
+}
+
+func readAllFiles(dir string) ([]string, error) {
+	var files []string
+
+	absPath, err := filepath.Abs(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Reading all files from: ", absPath)
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			files = append(files, entry.Name())
+		}
+	}
+
+	return files, nil
+}

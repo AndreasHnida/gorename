@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -11,23 +12,47 @@ import (
 
 const DEFAULT_LENGTH = 10
 
+// global variables for flags
+var prefix string
+var length int
+var sequence bool
+var verbose bool
+
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Renames a file to a random 10-digit number")
-		fmt.Println("Usage: gorename <pattern>")
+	// define flags
+	// flag for prefix
+	prefixPtr := flag.String("prefix", "", "a string")
+	// flag for length
+	lengthPtr := flag.Int("length", DEFAULT_LENGTH, "an int")
+	// bool flag for sequence
+	sequencePtr := flag.Bool("sequence", false, "a bool")
+	verbosePtr := flag.Bool("v", false, "a bool")
+
+	flag.Parse()
+
+	prefix = *prefixPtr
+	length = *lengthPtr
+	sequence = *sequencePtr
+	verbose = *verbosePtr
+
+	if *verbosePtr {
+		fmt.Println("prefix: ", prefix)
+		fmt.Println("length: ", length)
+		fmt.Println("sequence: ", sequence)
+	}
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Renames a file to a random number with a given length and optional prefix")
+		fmt.Println("Usage: gorename [-prefix <prefix>] [-length <length>] <pattern>")
 		os.Exit(1)
 	}
 
-	run()
+	pattern := flag.Arg(0)
 
+	run(pattern)
 }
-func run() {
+func run(pattern string) {
 	// Verify that the file exists
-	if len(os.Args) < 2 {
-		log.Fatal("Please provide a file pattern (e.g., *.jpg) or a directory (e.g. . ) ")
-	}
-	pattern := os.Args[1]
-
 	var files []string
 	var err error
 
@@ -45,22 +70,29 @@ func run() {
 	fmt.Println("Files successfully read: ")
 	fmt.Println(files)
 
-	err = renameFiles(files)
-	if err != nil {
-		log.Fatal(err)
+	if !sequence {
+		err = renameFilesWithRandomNumbers(files)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		err = renameFilesInSequence(files)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	// Generate a random 10-digit number
 }
-func renameFiles(files []string) error {
+func renameFilesWithRandomNumbers(files []string) error {
 
 	fmt.Println("Renaming files...")
 
 	for _, file := range files {
 		ext := filepath.Ext(file)
 		fmt.Println("renaming: ", file, " to")
-		randomDigits := generateRandomDigits()
-		newName := randomDigits + ext
-		fmt.Print(newName)
+		randomDigits := generateRandomDigits(length)
+		newName := prefix + randomDigits + ext
+		fmt.Println(newName)
 		err := os.Rename(file, newName)
 		if err != nil {
 			return err
@@ -68,9 +100,27 @@ func renameFiles(files []string) error {
 	}
 	return nil
 }
+func renameFilesInSequence(files []string) error {
 
-func generateRandomDigits() string {
-	length := DEFAULT_LENGTH
+	fmt.Println("Renaming files...")
+	seqNum := 1
+	for _, file := range files {
+		ext := filepath.Ext(file)
+		fmt.Println("renaming: ", file, " to")
+		// generate a sequencial number with 3 Digits
+		sequencialNumber := fmt.Sprintf("%03d", seqNum)
+		newName := prefix + sequencialNumber + ext
+		fmt.Println(newName)
+		err := os.Rename(file, newName)
+		if err != nil {
+			return err
+		}
+		seqNum++
+	}
+	return nil
+}
+
+func generateRandomDigits(length int) string {
 	source := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(source)
 
